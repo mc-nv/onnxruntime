@@ -1366,6 +1366,8 @@ if (onnxruntime_USE_CUDA)
   endif()
   find_package(CUDAToolkit REQUIRED)
 
+  include_directories(${CUDAToolkit_INCLUDE_DIRS})
+
   if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.8)
     add_definitions("-DENABLE_FP8")
     message(STATUS "CUDA Toolkit version is greater or equal than 11.8, enable -DENABLE_FP8 flag")
