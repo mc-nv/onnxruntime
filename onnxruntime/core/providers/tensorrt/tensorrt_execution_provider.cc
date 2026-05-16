@@ -1231,14 +1231,10 @@ void TensorrtExecutionProvider::PerThreadContext::ResetTensorRTContext(std::stri
 
 bool TensorrtExecutionProvider::PerThreadContext::UpdateTensorRTContext(std::string fused_node, std::unique_ptr<nvinfer1::IExecutionContext> context) {
   if (!context) {
-    context = std::make_unique<nvinfer1::IExecutionContext>();
+    return false;
   }
   trt_context_map_[fused_node] = std::move(context);
-
-  if (trt_context_map_[fused_node]) {
-    return true;
-  }
-  return false;
+  return static_cast<bool>(trt_context_map_[fused_node]);
 }
 
 bool TensorrtExecutionProvider::PerThreadContext::IsTensorRTContextInMap(std::string fused_node) {
@@ -1251,12 +1247,9 @@ bool TensorrtExecutionProvider::PerThreadContext::IsTensorRTContextInMap(std::st
 
 nvinfer1::IExecutionContext& TensorrtExecutionProvider::PerThreadContext::GetTensorRTContext(std::string fused_node) {
   auto it = trt_context_map_.find(fused_node);
-  if (it != trt_context_map_.end()) {
-    return *(it->second);  // dereference shared pointer
-  }
-  auto context = std::make_unique<nvinfer1::IExecutionContext>();
-  trt_context_map_[fused_node] = std::move(context);
-  return *(trt_context_map_[fused_node]);  // dereference shared pointer
+  ORT_ENFORCE(it != trt_context_map_.end() && it->second,
+              "TensorRT execution context for fused node '", fused_node, "' was not initialized");
+  return *(it->second);
 }
 
 void TensorrtExecutionProvider::ReleasePerThreadContext() const {
@@ -3327,6 +3320,7 @@ Status TensorrtExecutionProvider::CreateNodeComputeInfoFromGraph(const GraphView
   }
 
   // Check platform availability for low precision
+#if NV_TENSORRT_MAJOR < 11
   if (fp16_enable_ || bf16_enable_) {
 #if defined(_MSC_VER)
 #pragma warning(push)
@@ -3355,6 +3349,7 @@ Status TensorrtExecutionProvider::CreateNodeComputeInfoFromGraph(const GraphView
       LOGS_DEFAULT(WARNING) << "[TensorRT EP] ORT_TENSORRT_INT8_ENABLE is set, but platform doesn't support fast native int8";
     }
   }
+#endif  // NV_TENSORRT_MAJOR < 11
 
   // Load INT8 calibration table
   std::unordered_map<std::string, float> dynamic_range_map;
@@ -3586,10 +3581,14 @@ Status TensorrtExecutionProvider::CreateNodeComputeInfoFromGraph(const GraphView
 #pragma warning(disable : 4996)
 #endif
         // Set INT8 per tensor dynamic range
+#if NV_TENSORRT_MAJOR < 11
         if (int8_enable_ && trt_builder->platformHasFastInt8() && int8_calibration_cache_available_) {
           trt_config->setInt8Calibrator(nullptr);
 #if defined(_MSC_VER)
 #pragma warning(pop)
+#endif
+#else
+        if (int8_enable_ && int8_calibration_cache_available_) {
 #endif
           if (!SetDynamicRange(*trt_network, dynamic_range_map)) {
             return ORT_MAKE_STATUS(ONNXRUNTIME, EP_FAIL,
@@ -4000,10 +3999,14 @@ Status TensorrtExecutionProvider::CreateNodeComputeInfoFromGraph(const GraphView
 #pragma warning(disable : 4996)
 #endif
       // Set INT8 Per Tensor Dynamic range
+#if NV_TENSORRT_MAJOR < 11
       if (trt_state->int8_enable && trt_builder->platformHasFastInt8() && trt_state->int8_calibration_cache_available) {
         trt_config->setInt8Calibrator(nullptr);
 #if defined(_MSC_VER)
 #pragma warning(pop)
+#endif
+#else
+      if (trt_state->int8_enable && trt_state->int8_calibration_cache_available) {
 #endif
         if (!SetDynamicRange(*trt_state->network->get(), trt_state->dynamic_range_map)) {
           return ORT_MAKE_STATUS(ONNXRUNTIME, EP_FAIL, "TensorRT EP failed to set INT8 dynamic range.");
