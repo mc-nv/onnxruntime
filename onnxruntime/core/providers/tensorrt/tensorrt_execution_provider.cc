@@ -4064,12 +4064,12 @@ Status TensorrtExecutionProvider::CreateNodeComputeInfoFromGraph(const GraphView
         LOGS_DEFAULT(VERBOSE) << "[TensorRT EP] Auxiliary streams are se to " << trt_state->auxiliary_streams;
       }
 #else
-      if (trt_state->builder_optimization_level != 3) {
-        LOGS_DEFAULT(WARNING) << "[TensorRT EP] Builder optimization level can only be used on TRT 8.6 onwards!";
-      }
-      if (trt_state->auxiliary_streams >= 0) {
-        LOGS_DEFAULT(WARNING) << "[TensorRT EP] Auxiliary streams can only be set on TRT 8.6 onwards!";
-      }
+  if (trt_state->builder_optimization_level != 3) {
+    LOGS_DEFAULT(WARNING) << "[TensorRT EP] Builder optimization level can only be used on TRT 8.6 onwards!";
+  }
+  if (trt_state->auxiliary_streams >= 0) {
+    LOGS_DEFAULT(WARNING) << "[TensorRT EP] Auxiliary streams can only be set on TRT 8.6 onwards!";
+  }
 #endif
       if (weight_stripped_engine_enable_) {
 #if NV_TENSORRT_MAJOR >= 10
